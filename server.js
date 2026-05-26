@@ -16,7 +16,6 @@ const PORT   = process.env.PORT || 3000;
 // ── 미들웨어 ──────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(__dirname));
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dashboard-hankuk-2026',
   resave: false,
