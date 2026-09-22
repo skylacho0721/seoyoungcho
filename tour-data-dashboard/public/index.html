@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>공공데이터 여행 대시보드</title>
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <h1>🧭 공공데이터 여행 대시보드</h1>
+    <p class="subtitle">키워드 하나로 관광공사·기상청 공공데이터를 모아 엑셀로 내려받으세요</p>
+  </header>
+
+  <main>
+    <section class="search-box">
+      <input id="keyword" type="text" placeholder="예: 경주, 강릉, 전주 한옥마을 ..." autocomplete="off" />
+      <button id="searchBtn">검색</button>
+      <button id="downloadBtn" disabled>📥 엑셀 다운로드</button>
+    </section>
+
+    <section id="status" class="status"></section>
+
+    <section id="weatherCard" class="weather-card hidden"></section>
+
+    <section id="summary" class="summary hidden">
+      <h2>분류별 결과 수</h2>
+      <div id="categoryBars" class="category-bars"></div>
+    </section>
+
+    <section class="filter-row hidden" id="filterRow">
+      <span>분류 필터:</span>
+      <div id="filterChips" class="filter-chips"></div>
+    </section>
+
+    <section class="table-wrap">
+      <table id="resultTable">
+        <thead>
+          <tr>
+            <th>분류</th>
+            <th>이름</th>
+            <th>주소</th>
+            <th>전화번호</th>
+          </tr>
+        </thead>
+        <tbody id="resultBody"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <footer>
+    <p>데이터 출처: 한국관광공사 TourAPI, 기상청 단기예보 조회서비스 (공공데이터포털 data.go.kr)</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
