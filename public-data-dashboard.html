@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>공공데이터 여행 대시보드</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #f5f7fa;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --muted: #64748b;
+    --primary: #0f766e;
+    --primary-dark: #115e59;
+    --accent: #f59e0b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Malgun Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .topbar {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+    padding: 28px 24px;
+    text-align: center;
+  }
+  .topbar h1 { margin: 0 0 6px; font-size: 1.6rem; }
+  .subtitle { margin: 0; opacity: 0.9; font-size: 0.95rem; }
+  main { max-width: 900px; margin: 0 auto; padding: 24px 16px 60px; }
+  .search-box { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  #keyword {
+    flex: 1; min-width: 200px; padding: 12px 14px;
+    border: 1px solid var(--border); border-radius: 8px; font-size: 1rem;
+  }
+  button {
+    padding: 12px 18px; border: none; border-radius: 8px;
+    background: var(--primary); color: white; font-size: 0.95rem;
+    cursor: pointer; transition: background 0.15s;
+  }
+  button:hover:not(:disabled) { background: var(--primary-dark); }
+  button:disabled { background: #cbd5e1; cursor: not-allowed; }
+  #downloadBtn { background: var(--accent); }
+  #downloadBtn:hover:not(:disabled) { background: #d97706; }
+  .status { min-height: 20px; margin-bottom: 12px; font-size: 0.9rem; color: var(--muted); }
+  .status.error { color: #dc2626; }
+  .hidden { display: none !important; }
+  .weather-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 20px; margin-bottom: 16px; display: flex; gap: 20px;
+    flex-wrap: wrap; align-items: center;
+  }
+  .weather-card .w-title { font-weight: 600; color: var(--primary-dark); }
+  .weather-card .w-item { font-size: 0.9rem; color: var(--text); }
+  .weather-card .w-item b { color: var(--muted); font-weight: 500; margin-right: 4px; }
+  .summary {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 20px; margin-bottom: 16px;
+  }
+  .summary h2 { margin: 0 0 12px; font-size: 1rem; color: var(--muted); }
+  .category-bars { display: flex; flex-direction: column; gap: 8px; }
+  .category-bar-row { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
+  .category-bar-label { width: 90px; flex-shrink: 0; color: var(--text); }
+  .category-bar-track { flex: 1; background: #f1f5f9; border-radius: 6px; overflow: hidden; height: 18px; }
+  .category-bar-fill { height: 100%; background: var(--primary); border-radius: 6px; }
+  .category-bar-count { width: 30px; text-align: right; color: var(--muted); }
+  .filter-row {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+    flex-wrap: wrap; font-size: 0.85rem; color: var(--muted);
+  }
+  .filter-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--card); font-size: 0.82rem; cursor: pointer; color: var(--text);
+  }
+  .chip.active { background: var(--primary); color: white; border-color: var(--primary); }
+  .table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  thead { background: #f1f5f9; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; }
+  tbody tr:hover { background: #f8fafc; }
+  tbody tr:last-child td { border-bottom: none; }
+  footer { text-align: center; padding: 20px; color: var(--muted); font-size: 0.8rem; }
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <h1>🧭 공공데이터 여행 대시보드</h1>
+    <p class="subtitle">키워드 하나로 관광공사·기상청 공공데이터를 모아 엑셀로 내려받으세요</p>
+  </header>
+
+  <main>
+    <section class="search-box">
+      <input id="keyword" type="text" placeholder="예: 경주, 강릉, 전주 한옥마을 ..." autocomplete="off" />
+      <button id="searchBtn">검색</button>
+      <button id="downloadBtn" disabled>📥 엑셀 다운로드</button>
+    </section>
+
+    <section id="status" class="status"></section>
+    <section id="weatherCard" class="weather-card hidden"></section>
+    <section id="summary" class="summary hidden">
+      <h2>분류별 결과 수</h2>
+      <div id="categoryBars" class="category-bars"></div>
+    </section>
+    <section class="filter-row hidden" id="filterRow">
+      <span>분류 필터:</span>
+      <div id="filterChips" class="filter-chips"></div>
+    </section>
+    <section class="table-wrap">
+      <table id="resultTable">
+        <thead>
+          <tr><th>분류</th><th>이름</th><th>주소</th><th>전화번호</th></tr>
+        </thead>
+        <tbody id="resultBody"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <footer>
+    <p>데이터 출처: 한국관광공사 TourAPI, 기상청 단기예보 조회서비스 (공공데이터포털 data.go.kr)</p>
+  </footer>
+
+<script>
+// ====== 여기 두 줄에 공공데이터포털에서 발급받은 본인의 인증키(Decoding)를 넣으세요 ======
+const TOUR_API_KEY = 'YOUR_TOUR_API_KEY_HERE';
+const WEATHER_API_KEY = 'YOUR_WEATHER_API_KEY_HERE';
+// =====================================================================
+
+const REGION_COORDS = {
+  '서울': { nx: 60, ny: 127 }, '부산': { nx: 98, ny: 76 }, '대구': { nx: 89, ny: 90 },
+  '인천': { nx: 55, ny: 124 }, '광주': { nx: 58, ny: 74 }, '대전': { nx: 67, ny: 100 },
+  '울산': { nx: 102, ny: 84 }, '세종': { nx: 66, ny: 103 }, '수원': { nx: 60, ny: 121 },
+  '춘천': { nx: 73, ny: 134 }, '강릉': { nx: 92, ny: 131 }, '청주': { nx: 69, ny: 106 },
+  '전주': { nx: 63, ny: 89 }, '포항': { nx: 102, ny: 94 }, '제주': { nx: 52, ny: 38 },
+  '여수': { nx: 73, ny: 66 }, '경주': { nx: 100, ny: 91 }, '안동': { nx: 91, ny: 106 },
+  '목포': { nx: 50, ny: 67 }, '성남': { nx: 62, ny: 123 }, '고양': { nx: 57, ny: 128 },
+  '용인': { nx: 64, ny: 119 }, '평택': { nx: 62, ny: 114 }, '천안': { nx: 63, ny: 110 },
+  '원주': { nx: 76, ny: 122 }, '속초': { nx: 87, ny: 141 }, '통영': { nx: 87, ny: 68 },
+  '거제': { nx: 90, ny: 69 }, '남해': { nx: 78, ny: 61 }, '가평': { nx: 61, ny: 132 },
+};
+const TOUR_CATEGORY = {
+  12: '관광지', 14: '문화시설', 15: '축제공연행사', 25: '여행코스',
+  28: '레포츠', 32: '숙박', 38: '쇼핑', 39: '음식점',
+};
+const WEATHER_LABEL = { T1H: '기온(℃)', REH: '습도(%)', WSD: '풍속(m/s)', RN1: '1시간 강수량(mm)' };
+const PTY_LABEL = { '0': '없음', '1': '비', '2': '비/눈', '3': '눈', '5': '빗방울', '6': '빗방울눈날림', '7': '눈날림' };
+
+function findRegion(keyword) {
+  const name = Object.keys(REGION_COORDS).find((r) => keyword.includes(r));
+  return name ? { name, ...REGION_COORDS[name] } : null;
+}
+
+function getBaseDateTime() {
+  const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  let hour = kst.getUTCHours();
+  let date = kst;
+  if (kst.getUTCMinutes() < 40) {
+    date = new Date(kst.getTime() - 60 * 60 * 1000);
+    hour = date.getUTCHours();
+  }
+  const yyyy = date.getUTCFullYear();
+  const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(date.getUTCDate()).padStart(2, '0');
+  return { base_date: `${yyyy}${mm}${dd}`, base_time: `${String(hour).padStart(2, '0')}00` };
+}
+
+async function searchTourItems(keyword) {
+  const url = new URL('https://apis.data.go.kr/B551011/KorService2/searchKeyword2');
+  url.searchParams.set('serviceKey', TOUR_API_KEY);
+  url.searchParams.set('numOfRows', '50');
+  url.searchParams.set('pageNo', '1');
+  url.searchParams.set('MobileOS', 'ETC');
+  url.searchParams.set('MobileApp', 'TourDataDashboard');
+  url.searchParams.set('_type', 'json');
+  url.searchParams.set('arrange', 'A');
+  url.searchParams.set('keyword', keyword);
+
+  const r = await fetch(url);
+  const data = await r.json();
+  const header = data?.response?.header;
+  if (!header || header.resultCode !== '0000') {
+    throw new Error(`TourAPI 오류: ${header?.resultMsg || '알 수 없는 오류'}`);
+  }
+  const items = data?.response?.body?.items?.item || [];
+  const list = Array.isArray(items) ? items : [items];
+  return list.map((it) => ({
+    분류: TOUR_CATEGORY[it.contenttypeid] || '기타',
+    이름: it.title || '',
+    주소: it.addr1 || '',
+    전화번호: it.tel || '',
+  }));
+}
+
+async function getWeather(region) {
+  const { base_date, base_time } = getBaseDateTime();
+  const url = new URL('https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst');
+  url.searchParams.set('serviceKey', WEATHER_API_KEY);
+  url.searchParams.set('pageNo', '1');
+  url.searchParams.set('numOfRows', '10');
+  url.searchParams.set('dataType', 'JSON');
+  url.searchParams.set('base_date', base_date);
+  url.searchParams.set('base_time', base_time);
+  url.searchParams.set('nx', region.nx);
+  url.searchParams.set('ny', region.ny);
+
+  const r = await fetch(url);
+  const data = await r.json();
+  const header = data?.response?.header;
+  if (!header || header.resultCode !== '00') return null;
+
+  const items = data?.response?.body?.items?.item || [];
+  const result = { 지역: region.name };
+  items.forEach((it) => {
+    if (it.category === 'PTY') result['날씨상태'] = PTY_LABEL[it.obsrValue] || it.obsrValue;
+    else if (WEATHER_LABEL[it.category]) result[WEATHER_LABEL[it.category]] = it.obsrValue;
+  });
+  return result;
+}
+
+const keywordInput = document.getElementById('keyword');
+const searchBtn = document.getElementById('searchBtn');
+const downloadBtn = document.getElementById('downloadBtn');
+const statusEl = document.getElementById('status');
+const weatherCard = document.getElementById('weatherCard');
+const summaryEl = document.getElementById('summary');
+const categoryBars = document.getElementById('categoryBars');
+const filterRow = document.getElementById('filterRow');
+const filterChips = document.getElementById('filterChips');
+const resultBody = document.getElementById('resultBody');
+
+let currentItems = [];
+let currentWeather = null;
+let currentKeyword = '';
+let activeFilter = '전체';
+
+async function runSearch() {
+  const keyword = keywordInput.value.trim();
+  if (!keyword) { setStatus('키워드를 입력해주세요.', true); return; }
+
+  if (TOUR_API_KEY === 'YOUR_TOUR_API_KEY_HERE' || WEATHER_API_KEY === 'YOUR_WEATHER_API_KEY_HERE') {
+    setStatus('먼저 script 상단에 본인의 API 인증키를 입력해주세요.', true);
+    return;
+  }
+
+  setStatus('검색 중...');
+  searchBtn.disabled = true;
+  downloadBtn.disabled = true;
+  clearResults();
+
+  try {
+    const region = findRegion(keyword);
+    const [tourItems, weather] = await Promise.all([
+      searchTourItems(keyword),
+      region ? getWeather(region).catch(() => null) : Promise.resolve(null),
+    ]);
+
+    currentItems = tourItems;
+    currentWeather = weather;
+    currentKeyword = keyword;
+    activeFilter = '전체';
+
+    if (currentItems.length === 0) {
+      setStatus('검색 결과가 없습니다. 다른 키워드로 시도해보세요.', true);
+    } else {
+      setStatus(`총 ${currentItems.length}건의 관광정보를 찾았습니다.`);
+      downloadBtn.disabled = false;
+    }
+
+    renderWeather();
+    renderSummary();
+    renderFilters();
+    renderTable();
+  } catch (e) {
+    setStatus(e.message, true);
+  } finally {
+    searchBtn.disabled = false;
+  }
+}
+
+function setStatus(msg, isError = false) {
+  statusEl.textContent = msg;
+  statusEl.classList.toggle('error', isError);
+}
+
+function clearResults() {
+  weatherCard.classList.add('hidden');
+  summaryEl.classList.add('hidden');
+  filterRow.classList.add('hidden');
+  resultBody.innerHTML = '';
+}
+
+function renderWeather() {
+  if (!currentWeather) { weatherCard.classList.add('hidden'); return; }
+  const entries = Object.entries(currentWeather).filter(([k]) => k !== '지역');
+  weatherCard.innerHTML = `
+    <span class="w-title">🌤️ ${currentWeather['지역']} 현재 날씨</span>
+    ${entries.map(([k, v]) => `<span class="w-item"><b>${k}</b>${v}</span>`).join('')}
+  `;
+  weatherCard.classList.remove('hidden');
+}
+
+function renderSummary() {
+  if (currentItems.length === 0) { summaryEl.classList.add('hidden'); return; }
+  const counts = {};
+  currentItems.forEach((it) => { counts[it.분류] = (counts[it.분류] || 0) + 1; });
+  const max = Math.max(...Object.values(counts));
+  categoryBars.innerHTML = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([cat, count]) => `
+      <div class="category-bar-row">
+        <span class="category-bar-label">${cat}</span>
+        <div class="category-bar-track"><div class="category-bar-fill" style="width:${(count / max) * 100}%"></div></div>
+        <span class="category-bar-count">${count}</span>
+      </div>
+    `).join('');
+  summaryEl.classList.remove('hidden');
+}
+
+function renderFilters() {
+  if (currentItems.length === 0) { filterRow.classList.add('hidden'); return; }
+  const categories = ['전체', ...new Set(currentItems.map((it) => it.분류))];
+  filterChips.innerHTML = categories.map((cat) => `
+    <button type="button" class="chip ${cat === activeFilter ? 'active' : ''}" data-cat="${cat}">${cat}</button>
+  `).join('');
+  filterChips.querySelectorAll('.chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      activeFilter = chip.dataset.cat;
+      renderFilters();
+      renderTable();
+    });
+  });
+  filterRow.classList.remove('hidden');
+}
+
+function renderTable() {
+  const rows = activeFilter === '전체' ? currentItems : currentItems.filter((it) => it.분류 === activeFilter);
+  resultBody.innerHTML = rows.map((it) => `
+    <tr><td>${escapeHtml(it.분류)}</td><td>${escapeHtml(it.이름)}</td><td>${escapeHtml(it.주소)}</td><td>${escapeHtml(it.전화번호) || '-'}</td></tr>
+  `).join('');
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function downloadExcel() {
+  if (currentItems.length === 0) return;
+  const wb = XLSX.utils.book_new();
+  const tourSheet = XLSX.utils.json_to_sheet(currentItems.map(({ 분류, 이름, 주소, 전화번호 }) => ({ 분류, 이름, 주소, 전화번호 })));
+  XLSX.utils.book_append_sheet(wb, tourSheet, '관광정보');
+  if (currentWeather) {
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([currentWeather]), '날씨');
+  }
+  const counts = {};
+  currentItems.forEach((it) => { counts[it.분류] = (counts[it.분류] || 0) + 1; });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(Object.entries(counts).map(([분류, 건수]) => ({ 분류, 건수 }))), '요약');
+  XLSX.writeFile(wb, `공공데이터_${currentKeyword}.xlsx`);
+}
+
+searchBtn.addEventListener('click', runSearch);
+downloadBtn.addEventListener('click', downloadExcel);
+keywordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') runSearch(); });
+</script>
+</body>
+</html>
