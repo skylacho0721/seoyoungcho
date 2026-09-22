@@ -88,7 +88,6 @@ function getBaseDateTime() {
 const WEATHER_LABEL = {
   T1H: '기온(℃)', REH: '습도(%)', WSD: '풍속(m/s)', RN1: '1시간 강수량(mm)',
 };
-const PTY_LABEL = { '0': '없음', '1': '비', '2': '비/눈', '3': '눈', '5': '빗방울', '6': '빗방울눈날림', '7': '눈날림' };
 
 async function getWeather(region) {
   const key = process.env.WEATHER_API_KEY;
@@ -113,7 +112,7 @@ async function getWeather(region) {
   const items = data?.response?.body?.items?.item || [];
   const result = { 지역: region.name };
   items.forEach((it) => {
-    if (it.category === 'PTY') result['날씨상태'] = PTY_LABEL[it.obsrValue] || it.obsrValue;
+    if (it.category === 'PTY') result['PTY'] = it.obsrValue;
     else if (WEATHER_LABEL[it.category]) result[WEATHER_LABEL[it.category]] = it.obsrValue;
   });
   return result;
